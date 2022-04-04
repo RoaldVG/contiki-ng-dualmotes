@@ -1,0 +1,10 @@
+These files are the code to interface with the dualmotes.
+
+If writing code for an observed mote, DUALMOTES_OBSERVED should always be set to 1.
+By default it is assumed version 2 is used (red PCB), for version 1 set DUALMOTES_VERSION to 1 instead of 2.
+
+In orde to use timestamps correctly with the sub-GHz radio, the following changes should be made to the cc1200 code and configurations:
+    - in arch/platform/zoul/contiki-conf.h line 123:
+        #define CC1200_CONF_USE_GPIO2           1
+    - in arch/dev/cc1200/cc1200.c (or arch/dev/radio/cc1200/cc1200.c) line 149
+        #define GPIO2_IOCFG                     CC1200_IOCFG_PKT_SYNC_RXTX
