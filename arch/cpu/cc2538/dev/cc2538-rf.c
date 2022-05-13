@@ -114,6 +114,8 @@ static uint8_t crc_corr;
 static uint8_t rf_flags;
 static uint8_t rf_channel = IEEE802154_DEFAULT_CHANNEL;
 
+rtimer_clock_t tx_start_timestamp=0;
+
 static int on(void);
 static int off(void);
 /*---------------------------------------------------------------------------*/
@@ -703,6 +705,7 @@ transmit(unsigned short transmit_len)
   CC2538_RF_CSP_ISTXON();
 
   counter = 0;
+  tx_start_timestamp = RTIMER_NOW();
   while(!((REG(RFCORE_XREG_FSMSTAT1) & RFCORE_XREG_FSMSTAT1_TX_ACTIVE))
         && (counter++ < 3)) {
     clock_delay_usec(6);
@@ -1044,6 +1047,14 @@ get_object(radio_param_t param, void *dest, size_t size)
       return RADIO_RESULT_INVALID_VALUE;
     }
     *(rtimer_clock_t *)dest = get_sfd_timestamp();
+    return RADIO_RESULT_OK;
+  }
+
+  if(param == RADIO_PARAM_LAST_TX_TIMESTAMP) {
+    if(size != sizeof(rtimer_clock_t) || !dest) {
+      return RADIO_RESULT_INVALID_VALUE;
+    }
+    *(rtimer_clock_t *)dest = tx_start_timestamp;
     return RADIO_RESULT_OK;
   }
 

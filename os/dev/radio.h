@@ -372,6 +372,8 @@ enum radio_param_e {
    * mandatory.
    */
   RADIO_CONST_MAX_PAYLOAD_LEN,
+
+  RADIO_PARAM_LAST_TX_TIMESTAMP,
 };
 
 /**

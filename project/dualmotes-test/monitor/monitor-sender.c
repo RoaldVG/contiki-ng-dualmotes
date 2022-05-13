@@ -104,7 +104,7 @@ send_packet( uint16_t seqno)
 	static struct testmsg msg;
 	monitor_seqno++;
 
-	NETSTACK_RADIO.get_object(RADIO_PARAM_LAST_PACKET_TIMESTAMP, &msg.timestamp_mac, sizeof(rtimer_clock_t));
+	NETSTACK_RADIO.get_object(RADIO_PARAM_LAST_TX_TIMESTAMP, &msg.timestamp_mac, sizeof(rtimer_clock_t));
 
 	msg.observed_seqno = seqno;	
 	msg.monitor_seqno = monitor_seqno;	
@@ -153,6 +153,7 @@ PROCESS_THREAD(monitor_sender_process, ev, data)
 		}
 		if(ev == gpio_flag_event) {
 			uint16_t seqno = *(uint16_t*) data;
+			printf("%d",seqno);
 			send_packet(seqno);
 		}
     }
