@@ -357,6 +357,7 @@ set_poll_mode(uint8_t enable)
     NVIC_DisableIRQ(RF_TX_RX_IRQn);                         /* disable RF interrupts */
   } else {
     REG(RFCORE_XREG_RFIRQM0) |= RFCORE_XREG_RFIRQM0_FIFOP;  /* enable FIFOP interrupt source */
+    REG(RFCORE_XREG_RFIRQM0) |= RFCORE_XREG_RFIRQM0_SFD;    /* enable SFD interrupt */
     NVIC_EnableIRQ(RF_TX_RX_IRQn);                          /* enable RF interrupts */
   }
 }
@@ -705,11 +706,12 @@ transmit(unsigned short transmit_len)
   CC2538_RF_CSP_ISTXON();
 
   counter = 0;
-  tx_start_timestamp = RTIMER_NOW();
   while(!((REG(RFCORE_XREG_FSMSTAT1) & RFCORE_XREG_FSMSTAT1_TX_ACTIVE))
         && (counter++ < 3)) {
     clock_delay_usec(6);
   }
+
+  //tx_start_timestamp = RTIMER_NOW();
 
   if(!(REG(RFCORE_XREG_FSMSTAT1) & RFCORE_XREG_FSMSTAT1_TX_ACTIVE)) {
     LOG_ERR("TX never active.\n");
@@ -725,7 +727,7 @@ transmit(unsigned short transmit_len)
   if(was_off) {
     off();
   }
-
+  //printf("%ld\n", tx_start_timestamp);
   return ret;
 }
 /*---------------------------------------------------------------------------*/
@@ -1049,7 +1051,7 @@ get_object(radio_param_t param, void *dest, size_t size)
     *(rtimer_clock_t *)dest = get_sfd_timestamp();
     return RADIO_RESULT_OK;
   }
-
+   
   if(param == RADIO_PARAM_LAST_TX_TIMESTAMP) {
     if(size != sizeof(rtimer_clock_t) || !dest) {
       return RADIO_RESULT_INVALID_VALUE;
@@ -1133,7 +1135,7 @@ PROCESS_THREAD(cc2538_rf_process, ev, data)
 
       if(len > 0) {
         packetbuf_set_datalen(len);
-
+        //printf("radio read %ld\n", RTIMER_NOW());
         NETSTACK_MAC.input();
       }
     }
@@ -1168,15 +1170,25 @@ PROCESS_THREAD(cc2538_rf_process, ev, data)
  *        to RX and TX. Error conditions are handled by cc2538_rf_err_isr().
  *        Currently, we only acknowledge the FIFOP interrupt source.
  */
+rtimer_clock_t temp_timestamp;
+int prev_tx_active_state = 0;
 void
 cc2538_rf_rx_tx_isr(void)
 {
+  temp_timestamp = RTIMER_NOW();
   if(!poll_mode) {
     process_poll(&cc2538_rf_process);
   }
 
   /* We only acknowledge FIFOP so we can safely wipe out the entire SFR */
   REG(RFCORE_SFR_RFIRQF0) = 0;
+  
+  if( (REG(RFCORE_XREG_FSMSTAT1) & RFCORE_XREG_FSMSTAT1_SFD) &&
+      ((REG(RFCORE_XREG_FSMSTAT1) & RFCORE_XREG_FSMSTAT1_TX_ACTIVE)) &&
+      !prev_tx_active_state) {//&& (REG(RFCORE_XREG_FSMSTAT1) & RFCORE_XREG_FSMSTAT1_TX_ACTIVE) ) {
+    tx_start_timestamp = temp_timestamp;
+  }
+  prev_tx_active_state = (REG(RFCORE_XREG_FSMSTAT1) & RFCORE_XREG_FSMSTAT1_TX_ACTIVE);
 }
 /*---------------------------------------------------------------------------*/
 /**
