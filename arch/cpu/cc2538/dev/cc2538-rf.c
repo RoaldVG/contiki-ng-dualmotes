@@ -115,6 +115,8 @@ static uint8_t rf_flags;
 static uint8_t rf_channel = IEEE802154_DEFAULT_CHANNEL;
 
 rtimer_clock_t tx_start_timestamp=0;
+rtimer_clock_t temp_timestamp;
+int prev_tx_active_state = 0;
 
 static int on(void);
 static int off(void);
@@ -711,8 +713,6 @@ transmit(unsigned short transmit_len)
     clock_delay_usec(6);
   }
 
-  //tx_start_timestamp = RTIMER_NOW();
-
   if(!(REG(RFCORE_XREG_FSMSTAT1) & RFCORE_XREG_FSMSTAT1_TX_ACTIVE)) {
     LOG_ERR("TX never active.\n");
     CC2538_RF_CSP_ISFLUSHTX();
@@ -723,11 +723,11 @@ transmit(unsigned short transmit_len)
     ret = RADIO_TX_OK;
   }
   ENERGEST_SWITCH(ENERGEST_TYPE_TRANSMIT, ENERGEST_TYPE_LISTEN);
-
+  prev_tx_active_state = REG(RFCORE_XREG_FSMSTAT1) & RFCORE_XREG_FSMSTAT1_TX_ACTIVE;
   if(was_off) {
     off();
   }
-  //printf("%ld\n", tx_start_timestamp);
+
   return ret;
 }
 /*---------------------------------------------------------------------------*/
@@ -1135,7 +1135,6 @@ PROCESS_THREAD(cc2538_rf_process, ev, data)
 
       if(len > 0) {
         packetbuf_set_datalen(len);
-        //printf("radio read %ld\n", RTIMER_NOW());
         NETSTACK_MAC.input();
       }
     }
@@ -1170,8 +1169,6 @@ PROCESS_THREAD(cc2538_rf_process, ev, data)
  *        to RX and TX. Error conditions are handled by cc2538_rf_err_isr().
  *        Currently, we only acknowledge the FIFOP interrupt source.
  */
-rtimer_clock_t temp_timestamp;
-int prev_tx_active_state = 0;
 void
 cc2538_rf_rx_tx_isr(void)
 {
